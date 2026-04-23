@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from pymongo import MongoClient
 from requests_oauthlib import OAuth2Session
 from datetime import timedelta
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import config
 
@@ -12,10 +13,17 @@ import config
 # ==================================================
 
 app = Flask(__name__)
-app.secret_key = config.SECRET_KEY
+app.secret_key = config.SECRET_KEY or "fallback_secret_key"
 
-# авторизация на 7 дней
+# важно для Render / reverse proxy
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# сессия на 7 дней
 app.permanent_session_lifetime = timedelta(days=7)
+
+# cookie для HTTPS
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # ==================================================
 # MONGODB
@@ -36,7 +44,8 @@ AUTHORIZATION_BASE_URL = API_BASE_URL + "/oauth2/authorize"
 TOKEN_URL = API_BASE_URL + "/oauth2/token"
 
 SCOPES = ["identify", "guilds"]
-BOT_ID = str(config.CLIENT_ID)
+DEFAULT_PREFIX = config.PREFIX or "!"
+BOT_ID = str(config.BOT_ID or config.CLIENT_ID)
 
 
 def get_discord_session(token=None, state=None):
@@ -61,13 +70,15 @@ def index():
     try:
         discord = get_discord_session(token=session["oauth2_token"])
 
-        user_resp = discord.get(API_BASE_URL + "/users/@me")
+        user_resp = discord.get(f"{API_BASE_URL}/users/@me")
         if user_resp.status_code != 200:
+            print("USER RESP ERROR:", user_resp.status_code, user_resp.text)
             session.clear()
             return redirect(url_for("login"))
 
-        guilds_resp = discord.get(API_BASE_URL + "/users/@me/guilds")
+        guilds_resp = discord.get(f"{API_BASE_URL}/users/@me/guilds")
         if guilds_resp.status_code != 200:
+            print("GUILDS RESP ERROR:", guilds_resp.status_code, guilds_resp.text)
             return "Ошибка получения серверов Discord"
 
         user = user_resp.json()
@@ -77,28 +88,19 @@ def index():
         for g in guilds:
             permissions = int(g.get("permissions", 0))
 
-            is_admin = (
-                g.get("owner") or
-                (permissions & 0x8)
-            )
-
+            is_admin = g.get("owner") or (permissions & 0x8)
             if not is_admin:
                 continue
 
             guild_id = int(g["id"])
 
-            bot_data = bot_guilds_collection.find_one({
-                "_id": guild_id
-            })
+            bot_data = bot_guilds_collection.find_one({"_id": guild_id})
             bot_added = bot_data is not None
 
-            settings_data = settings_collection.find_one({
-                "_id": guild_id
-            })
-
+            settings_data = settings_collection.find_one({"_id": guild_id})
             current_prefix = (
-                settings_data.get("prefix", config.PREFIX)
-                if settings_data else config.PREFIX
+                settings_data.get("prefix", DEFAULT_PREFIX)
+                if settings_data else DEFAULT_PREFIX
             )
 
             invite_url = (
@@ -126,7 +128,7 @@ def index():
         )
 
     except Exception as e:
-        print("INDEX ERROR:", str(e))
+        print("INDEX ERROR:", repr(e))
         session.clear()
         return f"Ошибка авторизации: {str(e)}"
 
@@ -140,6 +142,10 @@ def login():
     session.clear()
 
     try:
+        print("CLIENT_ID EXISTS:", bool(config.CLIENT_ID))
+        print("CLIENT_SECRET EXISTS:", bool(config.CLIENT_SECRET))
+        print("REDIRECT_URI:", config.REDIRECT_URI)
+
         discord = get_discord_session()
 
         authorization_url, state = discord.authorization_url(
@@ -154,7 +160,7 @@ def login():
         return redirect(authorization_url)
 
     except Exception as e:
-        print("LOGIN ERROR:", str(e))
+        print("LOGIN ERROR:", repr(e))
         return f"Ошибка login(): {str(e)}"
 
 
@@ -166,7 +172,9 @@ def login():
 def callback():
     print("========== CALLBACK ==========")
     print("FULL URL:", request.url)
+    print("BASE URL:", request.base_url)
     print("ARGS:", request.args)
+    print("SESSION STATE:", session.get("oauth2_state"))
 
     if "error" in request.args:
         return f"OAuth ошибка: {request.args.get('error')}"
@@ -194,18 +202,18 @@ def callback():
             include_client_id=True
         )
 
+        print("TOKEN:", token)
+
         if not token:
             return "Токен пустой"
 
         session.permanent = True
         session["oauth2_token"] = token
 
-        print("TOKEN SAVED")
-
         return redirect("/")
 
     except Exception as e:
-        print("TOKEN ERROR:", str(e))
+        print("TOKEN ERROR:", repr(e))
         return f"Ошибка получения токена: {str(e)}"
 
 
@@ -234,7 +242,7 @@ def update():
         return redirect(url_for("index"))
 
     except Exception as e:
-        print("UPDATE ERROR:", str(e))
+        print("UPDATE ERROR:", repr(e))
         return f"Ошибка MongoDB: {str(e)}"
 
 
@@ -253,10 +261,12 @@ def logout():
 # ==================================================
 
 if __name__ == "__main__":
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+    # только для локальной разработки по http
+    if "RENDER" not in os.environ:
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+        app.config["SESSION_COOKIE_SECURE"] = False
 
     print("START:")
-    print("http://127.0.0.1:5000")
     print("REDIRECT_URI:", config.REDIRECT_URI)
 
     app.run(
