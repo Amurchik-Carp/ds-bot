@@ -1,0 +1,6 @@
+
+flask
+pymongo
+requests-oauthlib
+gunicorn
+python-dotenv
