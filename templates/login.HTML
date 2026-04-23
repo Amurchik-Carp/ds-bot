@@ -1,0 +1,98 @@
+<!-- templates/login.html -->
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Bot Panel</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #f4f6fb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            padding: 30px;
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 460px;
+            background: white;
+            border-radius: 18px;
+            padding: 50px 40px;
+            text-align: center;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            font-size: 30px;
+            margin-bottom: 16px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 35px;
+        }
+
+        .login-btn {
+            display: inline-block;
+            text-decoration: none;
+            background: #5865F2;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+
+        .login-btn:hover {
+            opacity: 0.95;
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            margin-top: 28px;
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+
+    <h1>Discord Bot Panel</h1>
+
+    <p class="subtitle">
+        Авторизуйтесь через Discord,<br>
+        чтобы управлять ботом на своих серверах
+    </p>
+
+    <a
+        href="{{ url_for('login') }}"
+        class="login-btn"
+    >
+        Войти через Discord
+    </a>
+
+    <div class="footer">
+        Без регистрации • Быстрый вход • Безопасно
+    </div>
+
+</div>
+
+</body>
+</html>

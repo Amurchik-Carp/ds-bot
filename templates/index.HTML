@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Bot Panel</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f4f6fb;
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 32px;
+        }
+
+        .logout-btn {
+            text-decoration: none;
+            background: #e74c3c;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .logout-btn:hover {
+            opacity: 0.9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+        }
+
+        th {
+            background: #5865F2;
+            color: white;
+            padding: 18px;
+            text-align: center;
+        }
+
+        td {
+            padding: 18px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        img {
+            border-radius: 50%;
+        }
+
+        input[type="text"] {
+            width: 80px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 15px;
+        }
+
+        button {
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .save-btn {
+            background: #5865F2;
+            color: white;
+        }
+
+        .invite-btn {
+            background: #57F287;
+            color: #111;
+        }
+
+        .status-ok {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .status-no {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .empty {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+        }
+
+        form {
+            display: contents;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="top-bar">
+        <h1>Панель управления ботом</h1>
+
+        <a href="/logout" class="logout-btn">
+            Выйти
+        </a>
+    </div>
+
+    {% if guilds %}
+
+    <table>
+        <tr>
+            <th>Иконка</th>
+            <th>Сервер</th>
+            <th>ID</th>
+            <th>Статус бота</th>
+            <th>Префикс</th>
+            <th>Действие</th>
+        </tr>
+
+        {% for guild in guilds %}
+        <tr>
+
+            <td>
+                {% if guild.icon %}
+                    <img
+                        src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png"
+                        width="42"
+                        height="42"
+                    >
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+
+            <td>{{ guild.name }}</td>
+
+            <td>{{ guild.id }}</td>
+
+            <td>
+                {% if guild.bot_added %}
+                    <span class="status-ok">
+                        Бот добавлен
+                    </span>
+                {% else %}
+                    <span class="status-no">
+                        Бота нет
+                    </span>
+                {% endif %}
+            </td>
+
+            {% if guild.bot_added %}
+
+                <form action="/update" method="post">
+
+                    <input
+                        type="hidden"
+                        name="guild_id"
+                        value="{{ guild.id }}"
+                    >
+
+                    <td>
+                        <input
+                            type="text"
+                            name="prefix"
+                            value="{{ guild.current_prefix }}"
+                            required
+                        >
+                    </td>
+
+                    <td>
+                        <button
+                            type="submit"
+                            class="save-btn"
+                        >
+                            Сохранить
+                        </button>
+                    </td>
+
+                </form>
+
+            {% else %}
+
+                <td>—</td>
+
+                <td>
+                    <a href="{{ guild.invite_url }}">
+                        <button class="invite-btn">
+                            Пригласить бота
+                        </button>
+                    </a>
+                </td>
+
+            {% endif %}
+
+        </tr>
+        {% endfor %}
+    </table>
+
+    {% else %}
+
+        <div class="empty">
+            У вас нет серверов с правами администратора
+        </div>
+
+    {% endif %}
+
+</div>
+
+</body>
+</html>
