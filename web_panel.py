@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from requests_oauthlib import OAuth2Session
 from datetime import timedelta
 from werkzeug.middleware.proxy_fix import ProxyFix
+import requests
 import os
 import config
 
@@ -15,7 +16,7 @@ import config
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY or "fallback_secret_key"
 
-# важно для Render / reverse proxy
+# Render / reverse proxy
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # сессия на 7 дней
@@ -87,8 +88,8 @@ def index():
 
         for g in guilds:
             permissions = int(g.get("permissions", 0))
-
             is_admin = g.get("owner") or (permissions & 0x8)
+
             if not is_admin:
                 continue
 
@@ -193,23 +194,41 @@ def callback():
         return "Discord не вернул code"
 
     try:
-        discord = get_discord_session(state=saved_state)
+        data = {
+            "client_id": config.CLIENT_ID,
+            "client_secret": config.CLIENT_SECRET,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": config.REDIRECT_URI,
+        }
 
-        token = discord.fetch_token(
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
+        token_resp = requests.post(
             TOKEN_URL,
-            client_secret=config.CLIENT_SECRET,
-            authorization_response=request.url,
-            include_client_id=True
+            data=data,
+            headers=headers,
+            timeout=15
         )
 
-        print("TOKEN:", token)
+        print("TOKEN STATUS:", token_resp.status_code)
+        print("TOKEN TEXT:", token_resp.text)
 
-        if not token:
-            return "Токен пустой"
+        if token_resp.status_code != 200:
+            return f"Ошибка токенов Discord: {token_resp.text}"
+
+        token = token_resp.json()
+
+        access_token = token.get("access_token")
+        if not access_token:
+            return f"Discord не вернул access_token: {token}"
 
         session.permanent = True
         session["oauth2_token"] = token
 
+        print("TOKEN SAVED")
         return redirect("/")
 
     except Exception as e:

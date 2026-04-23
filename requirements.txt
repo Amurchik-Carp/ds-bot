@@ -1,6 +1,6 @@
-
 flask
 pymongo
+requests
 requests-oauthlib
 gunicorn
 python-dotenv
